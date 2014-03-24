@@ -58,13 +58,15 @@ public class Classifier_XOR {
 
 		System.out.println("Enter the learning rate");
 		
-		double scaling_factor=Double.parseDouble(br.readLine());
+		double learning_rate=Double.parseDouble(br.readLine());
 		
 		System.out.println("Enter the momentum rate:Note for a high learning rate do not keep high momentum");
 		double momentum=Double.parseDouble(br.readLine());
 
-		int total_links=(cols)*no_neurons*hidden_layer+no_neurons;
-
+		int total_links=(cols)*no_neurons + (hidden_layer-1)*no_neurons*no_neurons +no_neurons;
+		
+		System.out.println("Total no. of links generated are:"+total_links);
+		
 		hidden_layer++; // for the output neuron at the last layer
 
 		//creating links for the network
@@ -99,10 +101,8 @@ public class Classifier_XOR {
 					int k=0;
 					while(k< cols)
 						{
-						   
 						   layers[i].neurons[j].to[k++]=links[link_tracker++];
 						}
-					
 				}
 			}
 			else
@@ -111,9 +111,9 @@ public class Classifier_XOR {
 				{
 
 					layers[i].neurons[j]=new Neuron();
-					layers[i].neurons[j].to=new Link[cols-1];
+					layers[i].neurons[j].to=new Link[no_neurons];
 					int k=0;
-					while(k< cols-1) layers[i].neurons[j].to[k++]=links[link_tracker++];
+					while(k<no_neurons) layers[i].neurons[j].to[k++]=links[link_tracker++];
 				}
 			}
 		}
@@ -158,7 +158,8 @@ public class Classifier_XOR {
 					}
 					else if(i==hidden_layer-1) //the last layer of the network,which will have only one neuron
 					{
-						double net=0; ;int to_count=0;
+						double net=0; 
+						int to_count=0;
 						for(int n=0;n<no_neurons;n++)
 						{
 							net+=layers[i-1].neurons[n].output*layers[i].neurons[0].to[to_count++].weight;
@@ -167,16 +168,16 @@ public class Classifier_XOR {
 						double op=(double)1/(1+Math.pow(e,-net)); //sigmoidal function as the activation function
 						
 						layers[i].neurons[0].output=op;
-						System.out.println("output of neuron "+op+" for r:"+r);
 					}
 					else  //the otherwise case of in between layers
 					{
 						for(int n=0;n<no_neurons;n++) //for the current layer's neuron
 						{
-							double net=0;int to_count=0;
+							double net=0;
+							int to_count=0;
 							for(int j=0;j<no_neurons;j++)
 							{
-								net+=layers[i-1].neurons[j].output*layers[i].neurons[j].to[to_count++].weight;
+								net+=layers[i-1].neurons[j].output*layers[i].neurons[n].to[to_count++].weight;
 							}
 							double op=(double)1/(1+Math.pow(e,-net)); //sigmoidal function as the activation function
 							layers[i].neurons[n].output=op;  
@@ -187,7 +188,7 @@ public class Classifier_XOR {
 				int t=xor[r][cols-1]; //the expected output
 				double o=layers[hidden_layer-1].neurons[0].output;
 				
-				double delta=scaling_factor*(t-o)*o*(1-o); //weight change at the outer layer
+				double delta=learning_rate*(t-o)*o*(1-o); //weight change at the outer layer
 				
 				double E=(t-o);
                 
@@ -199,7 +200,7 @@ public class Classifier_XOR {
 				if(E <= 0.02) //its fine till now since no error
 				{
 					check++;
-					if(check==4)
+					if(check==rows)
 					{
 						System.out.println("We are done with "+run_count+" run(s)");
 						break outer;
@@ -220,8 +221,8 @@ public class Classifier_XOR {
 							layers[i].neurons[0].error=delta;
 							for(int n=0;n<no_neurons;n++)
 							{
-								layers[i].neurons[0].to[n].weight+=scaling_factor*layers[i].neurons[0].error*layers[i-1].neurons[n].output + momentum*layers[i].neurons[0].to[n].delta_weight;
-								layers[i].neurons[0].to[n].delta_weight=scaling_factor*layers[i].neurons[0].error;
+								layers[i].neurons[0].to[n].weight+=layers[i].neurons[0].error*layers[i-1].neurons[n].output + momentum*layers[i].neurons[0].to[n].delta_weight;
+								layers[i].neurons[0].to[n].delta_weight=layers[i].neurons[0].error*layers[i-1].neurons[n].output;
 							}
 						}
 						
@@ -237,17 +238,17 @@ public class Classifier_XOR {
 										//calculating the error from the links going outward and the next layers error
 										layers[i].neurons[n].error+=layers[i+1].neurons[k].to[n].weight*layers[i+1].neurons[k].error;
 									}
-									if(j==layers[i].neurons[n].to.length-1) //this is the -1 case
+									if(j==layers[i].neurons[n].to.length-1) //this is the bias case
 									{
 										layers[i].neurons[n].error*=(1-o)*o;
-										layers[i].neurons[n].to[j].weight+=scaling_factor*layers[i].neurons[n].error + momentum*layers[i].neurons[n].to[j].delta_weight; 
-										layers[i].neurons[n].to[j].delta_weight=scaling_factor*layers[i].neurons[n].error;
+										layers[i].neurons[n].to[j].weight+=learning_rate*layers[i].neurons[n].error + momentum*layers[i].neurons[n].to[j].delta_weight; 
+										layers[i].neurons[n].to[j].delta_weight=learning_rate*layers[i].neurons[n].error;
 									}
 									else
 									{	
 									  layers[i].neurons[n].error*=(1-o)*o;
-									  layers[i].neurons[n].to[j].weight+=scaling_factor*layers[i].neurons[n].error*xor[r][j] + momentum*layers[i].neurons[n].to[j].delta_weight;  
-									  layers[i].neurons[n].to[j].delta_weight=scaling_factor*layers[i].neurons[n].error;
+									  layers[i].neurons[n].to[j].weight+=learning_rate*layers[i].neurons[n].error*xor[r][j] + momentum*layers[i].neurons[n].to[j].delta_weight;  
+									  layers[i].neurons[n].to[j].delta_weight=learning_rate*layers[i].neurons[n].error*xor[r][j];
 									}
 								}
 
@@ -267,14 +268,13 @@ public class Classifier_XOR {
 										layers[i].neurons[n].error+=layers[i+1].neurons[k].to[n].weight*layers[i+1].neurons[k].error;
 									}
 									  layers[i].neurons[n].error*=(1-o)*o;
-									  layers[i].neurons[n].to[j].weight+=scaling_factor*layers[i].neurons[n].error*layers[i-1].neurons[j].output +  momentum*layers[i].neurons[n].to[j].delta_weight;
-									  layers[i].neurons[n].to[j].delta_weight=scaling_factor*layers[i].neurons[n].error;  
+									  layers[i].neurons[n].to[j].weight+=learning_rate*layers[i].neurons[n].error*layers[i-1].neurons[j].output +  momentum*layers[i].neurons[n].to[j].delta_weight;
+									  layers[i].neurons[n].to[j].delta_weight=learning_rate*layers[i].neurons[n].error*layers[i-1].neurons[j].output;  
 								}
 
 							}
 						}
 					}
-					r=2; //breaks the outer for loop
 				}
 			}
 		}
